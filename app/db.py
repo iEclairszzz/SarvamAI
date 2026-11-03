@@ -44,10 +44,16 @@ def init_db() -> None:
                 status TEXT,
                 error TEXT,
                 last_position REAL DEFAULT 0.0,
+                is_preview INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN is_preview INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bookmarks (
                 id TEXT PRIMARY KEY,
@@ -71,12 +77,13 @@ def save_job(job_data: Dict[str, Any]) -> None:
         sentences_str = json.dumps(job_data["sentences"], ensure_ascii=False)
 
     now = datetime.now(timezone.utc).isoformat()
+    is_preview_val = 1 if job_data.get("is_preview") else 0
     with get_connection() as conn:
         conn.execute("""
             INSERT INTO jobs (
                 id, title, language, speaker, style, duration, audio_url,
-                final_text, sentences_json, status, error, last_position, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                final_text, sentences_json, status, error, last_position, is_preview, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title=excluded.title,
                 language=excluded.language,
@@ -89,6 +96,7 @@ def save_job(job_data: Dict[str, Any]) -> None:
                 status=excluded.status,
                 error=excluded.error,
                 last_position=COALESCE(jobs.last_position, excluded.last_position),
+                is_preview=excluded.is_preview,
                 updated_at=excluded.updated_at
         """, (
             job_id,
@@ -103,6 +111,7 @@ def save_job(job_data: Dict[str, Any]) -> None:
             job_data.get("status"),
             job_data.get("error"),
             job_data.get("last_position", 0.0),
+            is_preview_val,
             now,
         ))
         conn.commit()
@@ -116,7 +125,6 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
             return None
 
         job = dict(row)
-        # Parse sentences JSON
         sentences = []
         if job.get("sentences_json"):
             try:
@@ -125,7 +133,6 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
                 sentences = []
         job["sentences"] = sentences
 
-        # Fetch bookmarks
         bm_rows = conn.execute(
             "SELECT id, job_id, time_sec, label, created_at FROM bookmarks WHERE job_id = ? ORDER BY time_sec ASC",
             (job_id,)
@@ -148,7 +155,7 @@ def update_job_position(job_id: str, position: float) -> bool:
 
 
 def get_listening_history(limit: int = 25) -> List[Dict[str, Any]]:
-    """Get recent jobs that completed or have saved progress."""
+    """Get recent user narrations. Explicitly filters out voice previews."""
     with get_connection() as conn:
         rows = conn.execute("""
             SELECT 
@@ -166,10 +173,29 @@ def get_listening_history(limit: int = 25) -> List[Dict[str, Any]]:
                 (SELECT COUNT(*) FROM bookmarks b WHERE b.job_id = j.id) AS bookmark_count
             FROM jobs j
             WHERE j.status = 'completed'
+              AND (j.is_preview IS NULL OR j.is_preview = 0)
             ORDER BY j.updated_at DESC, j.created_at DESC
             LIMIT ?
         """, (limit,)).fetchall()
         return [dict(r) for r in rows]
+
+
+def delete_history_job(job_id: str) -> bool:
+    """Delete a narration job and its bookmarks from history."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM bookmarks WHERE job_id = ?", (job_id,))
+        cursor = conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def clear_all_history() -> bool:
+    """Clear all narration history from server."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM bookmarks")
+        conn.execute("DELETE FROM jobs")
+        conn.commit()
+        return True
 
 
 def add_bookmark(job_id: str, time_sec: float, label: Optional[str] = None) -> Dict[str, Any]:

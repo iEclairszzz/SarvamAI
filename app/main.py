@@ -30,6 +30,8 @@ from app.db import (
     get_job,
     update_job_position,
     get_listening_history,
+    delete_history_job,
+    clear_all_history,
     add_bookmark,
     delete_bookmark,
 )
@@ -341,6 +343,23 @@ def get_history(limit: int = Query(25, ge=1, le=100)):
     Stored in database; does not rely on browser localStorage.
     """
     return get_listening_history(limit=limit)
+
+
+@app.delete("/api/history/{job_id}")
+def delete_history_item(job_id: str):
+    """Delete a single narration from history on the server."""
+    success = delete_history_job(job_id)
+    if job_id in jobs:
+        del jobs[job_id]
+    return {"status": "ok", "deleted": success}
+
+
+@app.delete("/api/history")
+def clear_all_narrations_history():
+    """Clear all listening history from the server."""
+    clear_all_history()
+    jobs.clear()
+    return {"status": "ok", "cleared": True}
 
 
 @app.post("/api/narrate")

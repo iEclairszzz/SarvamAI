@@ -83,3 +83,34 @@ def test_playback_position_and_bookmarks():
     # Verify bookmark deleted
     job_res2 = client.get(f"/api/jobs/{test_id}")
     assert len(job_res2.json()["bookmarks"]) == 0
+
+
+def test_delete_history_endpoints():
+    from app.db import save_job
+    test_id = "test_hist_del"
+    save_job({
+        "job_id": test_id,
+        "title": "To be deleted",
+        "language": "hi-IN",
+        "speaker": "shubh",
+        "duration": 30.0,
+        "status": "completed",
+    })
+
+    # Verify present in history
+    hist1 = client.get("/api/history").json()
+    assert any(h["job_id"] == test_id for h in hist1)
+
+    # Delete single item
+    del_res = client.delete(f"/api/history/{test_id}")
+    assert del_res.status_code == 200
+
+    # Verify deleted
+    hist2 = client.get("/api/history").json()
+    assert not any(h["job_id"] == test_id for h in hist2)
+
+    # Clear all history
+    clear_res = client.delete("/api/history")
+    assert clear_res.status_code == 200
+    hist3 = client.get("/api/history").json()
+    assert len(hist3) == 0
