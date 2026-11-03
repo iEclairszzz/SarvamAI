@@ -28,6 +28,9 @@
       padding: 2px 6px;
     }
     /* Custom scrollbar for transcript */
+    #result-transcript-box {
+      overscroll-behavior: contain;
+    }
     #result-transcript-box::-webkit-scrollbar {
       width: 6px;
     }
@@ -374,7 +377,7 @@
   <div id="history-drawer" class="fixed inset-0 z-50 overflow-hidden hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeHistoryDrawer()"></div>
     <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-      <div class="pointer-events-auto w-screen max-w-md transform transition bg-white shadow-2xl flex flex-col">
+      <div class="pointer-events-auto w-screen max-w-md h-full transform transition bg-white shadow-2xl flex flex-col">
         <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -392,7 +395,7 @@
           </div>
         </div>
         
-        <div id="history-items-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <div id="history-items-container" class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3">
           <div class="text-center py-12 text-slate-400 text-xs">
             Loading listening history from server...
           </div>
@@ -442,6 +445,8 @@
     let currentSentences = [];
     let positionSaveTimer = null;
     let activeAuditionSpeaker = null;
+    let lastAutoScrolledId = null;
+    let transcriptUserScrolledAt = 0;
 
     // Toast helper
     function showToast(message, type = 'error') {
@@ -694,10 +699,12 @@
       });
 
       document.getElementById('voice-compare-modal').classList.remove('hidden');
+      lockBodyScroll();
     }
 
     function closeVoiceCompareModal() {
       document.getElementById('voice-compare-modal').classList.add('hidden');
+      unlockBodyScroll();
     }
 
     function selectVoiceFromModal(speakerId) {
@@ -723,6 +730,7 @@
       const container = document.getElementById('history-items-container');
       container.innerHTML = '<div class="text-center py-12 text-slate-400 text-xs">Loading history from server...</div>';
       document.getElementById('history-drawer').classList.remove('hidden');
+      lockBodyScroll();
 
       try {
         const res = await fetch('/api/history?limit=30');
@@ -798,6 +806,7 @@
 
     function closeHistoryDrawer() {
       document.getElementById('history-drawer').classList.add('hidden');
+      unlockBodyScroll();
     }
 
     async function deleteHistoryItem(jobId, event) {
@@ -956,6 +965,8 @@
     function renderSynchronizedTranscript(sentences, fallbackText) {
       const box = document.getElementById('result-transcript-box');
       box.innerHTML = '';
+      box.scrollTop = 0;
+      lastAutoScrolledId = null;
       currentSentences = sentences || [];
 
       if (!sentences || sentences.length === 0) {
@@ -997,15 +1008,59 @@
           activeEl.classList.add('sentence-active');
 
           const autoScroll = document.getElementById('toggle-autoscroll').checked;
-          if (autoScroll) {
-            activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          const userIsScrolling = Date.now() - transcriptUserScrolledAt < 2500;
+          if (autoScroll && active.id !== lastAutoScrolledId && !userIsScrolling) {
+            lastAutoScrolledId = active.id;
+            scrollTranscriptTo(activeEl);
           }
         }
       }
     }
 
+    function scrollTranscriptTo(activeEl) {
+      // Auto-scroll must stay inside the transcript panel. Calling
+      // scrollIntoView() here also scrolls the whole page on every sentence,
+      // which fights the user's own scrolling.
+      const box = document.getElementById('result-transcript-box');
+      if (!box || !box.contains(activeEl)) return;
+
+      const boxRect = box.getBoundingClientRect();
+      const elRect = activeEl.getBoundingClientRect();
+      const elOffsetTop = elRect.top - boxRect.top + box.scrollTop;
+      const maxScrollTop = Math.max(0, box.scrollHeight - box.clientHeight);
+      const target = elOffsetTop - (box.clientHeight / 2) + (elRect.height / 2);
+
+      box.scrollTo({
+        top: Math.max(0, Math.min(target, maxScrollTop)),
+        behavior: 'smooth',
+      });
+    }
+
+    // Body scroll helpers keep the page still while an overlay is open.
+    function lockBodyScroll() {
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function unlockBodyScroll() {
+      if (!document.getElementById('history-drawer').classList.contains('hidden')) return;
+      if (!document.getElementById('voice-compare-modal').classList.contains('hidden')) return;
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    // Track manual scrolling inside the transcript so auto-scroll can back off.
+    (function trackTranscriptScroll() {
+      const box = document.getElementById('result-transcript-box');
+      if (!box) return;
+      ['wheel', 'touchmove', 'pointerdown'].forEach(evt => {
+        box.addEventListener(evt, () => {
+          transcriptUserScrolledAt = Date.now();
+        }, { passive: true });
+      });
+    })();
+
     function seekToSentence(startSec) {
       const audio = document.getElementById('audio-player');
+      lastAutoScrolledId = null;
       audio.currentTime = startSec;
       audio.play().catch(() => {});
     }
