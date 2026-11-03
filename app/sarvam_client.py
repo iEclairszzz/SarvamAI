@@ -22,10 +22,12 @@ class SarvamAPIException(Exception):
 
 class SarvamClientWrapper:
     def __init__(self, api_key: Optional[str] = None):
-        key = (api_key or os.getenv("SARVAM_API_KEY") or "").strip()
+        # SARVAM_API_NEW is supported as an explicit override so a new account
+        # key can be introduced without removing the existing variable.
+        key = (api_key or os.getenv("SARVAM_API_NEW") or os.getenv("SARVAM_API_KEY") or "").strip()
         if not key:
             raise SarvamAPIException(
-                "SARVAM_API_KEY is not configured. Please set SARVAM_API_KEY in your .env file."
+                "SARVAM_API_KEY is not configured. Please set SARVAM_API_KEY (or SARVAM_API_NEW) in your environment."
             )
         self.client = sarvamai.SarvamAI(api_subscription_key=key)
 

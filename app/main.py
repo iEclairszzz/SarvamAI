@@ -505,10 +505,16 @@ def get_audio(filename: str):
 @app.get("/api/health")
 def health():
     """Lightweight readiness probe for the deployed environment."""
+    api_key_var = None
+    if os.getenv("SARVAM_API_NEW"):
+        api_key_var = "SARVAM_API_NEW"
+    elif os.getenv("SARVAM_API_KEY"):
+        api_key_var = "SARVAM_API_KEY"
     return {
         "status": "ok",
         "serverless": IS_SERVERLESS,
         "blob_storage": bool(os.getenv("BLOB_READ_WRITE_TOKEN")),
+        "api_key_var": api_key_var,
     }
 
 
