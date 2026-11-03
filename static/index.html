@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sarvam Narrator — Multilingual Indian Voice Reader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .tab-btn.active {
+      background-color: #4F46E5;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+    .style-card.selected {
+      border-color: #4F46E5;
+      background-color: #EEF2FF;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-indigo-100">
+          S
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            Sarvam Narrator
+            <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium border border-indigo-200/60">Bulbul TTS</span>
+          </h1>
+          <p class="text-xs text-slate-500">Multilingual audio reader for articles, documents & text</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Bulbul v3 Connected
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Left Column: Source Input & Voice Options (7 cols) -->
+      <section class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+        
+        <!-- Input Tabs -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">1. Select Input Source</label>
+          <div class="flex p-1 bg-slate-100 rounded-xl gap-1 text-sm font-medium text-slate-600">
+            <button type="button" class="tab-btn active flex-1 py-2 px-3 rounded-lg transition-all text-center" data-tab="paste">
+              📝 Paste Text
+            </button>
+            <button type="button" class="tab-btn flex-1 py-2 px-3 rounded-lg transition-all text-center" data-tab="upload">
+              📁 Upload File
+            </button>
+            <button type="button" class="tab-btn flex-1 py-2 px-3 rounded-lg transition-all text-center" data-tab="url">
+              🌐 Web Article
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab Contents -->
+        <div id="tab-content-paste" class="tab-panel space-y-2">
+          <div class="flex justify-between items-center">
+            <label for="input-text" class="text-xs font-semibold text-slate-700">Enter or paste text (up to 20,000 characters)</label>
+            <span id="char-counter" class="text-xs text-slate-400">0 / 20,000</span>
+          </div>
+          <textarea id="input-text" rows="7" class="w-full text-sm rounded-xl border border-slate-300 p-3.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition placeholder:text-slate-400" placeholder="Paste your article, script, or notes here... Supports Hindi, English, Tamil, Telugu, Bengali, and more."></textarea>
+          <div class="flex gap-2">
+            <button type="button" onclick="loadSample('hindi')" class="text-xs px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition">Sample: Hindi News</button>
+            <button type="button" onclick="loadSample('english')" class="text-xs px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition">Sample: English Story</button>
+          </div>
+        </div>
+
+        <div id="tab-content-upload" class="tab-panel hidden space-y-2">
+          <label class="text-xs font-semibold text-slate-700">Upload document (.txt, .md, .pdf)</label>
+          <div class="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-8 text-center bg-slate-50/50 transition cursor-pointer" onclick="document.getElementById('input-file').click()">
+            <div class="mx-auto w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            </div>
+            <p class="text-sm font-semibold text-slate-700 mb-1" id="file-label">Click to select or drop a file here</p>
+            <p class="text-xs text-slate-400">Supports Plain Text (.txt), Markdown (.md), and PDF (.pdf)</p>
+            <input type="file" id="input-file" class="hidden" accept=".txt,.md,.pdf" onchange="handleFileSelected(this)">
+          </div>
+        </div>
+
+        <div id="tab-content-url" class="tab-panel hidden space-y-2">
+          <label for="input-url" class="text-xs font-semibold text-slate-700">Article or Webpage URL</label>
+          <div class="relative">
+            <input type="url" id="input-url" class="w-full text-sm rounded-xl border border-slate-300 pl-10 pr-3.5 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition placeholder:text-slate-400" placeholder="https://en.wikipedia.org/wiki/India">
+            <span class="absolute left-3.5 top-3.5 text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Trafilatura will automatically extract the core readable article and title.</p>
+        </div>
+
+        <!-- Language & Optional Translation -->
+        <div class="pt-4 border-t border-slate-100 space-y-4">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">2. Language & Translation</label>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="select-language" class="block text-xs font-medium text-slate-700 mb-1">Content Language</label>
+              <select id="select-language" class="w-full text-sm rounded-xl border border-slate-300 p-2.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none bg-white font-medium text-slate-800">
+                <!-- Populated via API -->
+              </select>
+            </div>
+            
+            <div class="flex items-center sm:pt-6">
+              <label class="relative flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" id="toggle-translate" class="sr-only peer" onchange="toggleTranslateSection()">
+                <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                <span class="text-xs font-semibold text-slate-700">Narrate in different language (Translate)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Translation drawer -->
+          <div id="translate-drawer" class="hidden p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="select-target-lang" class="block text-xs font-medium text-indigo-950 mb-1">Translate To</label>
+                <select id="select-target-lang" class="w-full text-sm rounded-lg border border-indigo-200 p-2 focus:border-indigo-500 outline-none bg-white text-slate-800 font-medium">
+                  <!-- Populated via API -->
+                </select>
+              </div>
+              <div>
+                <label for="select-translate-mode" class="block text-xs font-medium text-indigo-950 mb-1">Translation Tone</label>
+                <select id="select-translate-mode" class="w-full text-sm rounded-lg border border-indigo-200 p-2 focus:border-indigo-500 outline-none bg-white text-slate-800 font-medium">
+                  <option value="formal">Formal (Standard)</option>
+                  <option value="modern-colloquial">Modern Colloquial</option>
+                  <option value="classic-colloquial">Classic Colloquial</option>
+                  <option value="code-mixed">Code-Mixed (Hinglish/Tanglish)</option>
+                </select>
+              </div>
+            </div>
+            <p class="text-[11px] text-indigo-700/80 leading-relaxed">
+              Powered by Sarvam Mayura. The content will be automatically translated into the chosen target language before audio synthesis.
+            </p>
+          </div>
+        </div>
+
+        <!-- Content Style (Pacing & Voice Persona presets) -->
+        <div class="pt-4 border-t border-slate-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">3. Content Style & Delivery</label>
+            <span class="text-[11px] text-slate-400">Presets tune persona + pace</span>
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <button type="button" class="style-card selected border border-slate-200 rounded-xl p-3 text-left transition hover:border-indigo-300" data-style="news" onclick="selectStyle('news')">
+              <span class="text-base block mb-1">📰</span>
+              <span class="text-xs font-bold text-slate-800 block">News</span>
+              <span class="text-[10px] text-slate-500 block leading-tight">Steady, 1.0x</span>
+            </button>
+            <button type="button" class="style-card border border-slate-200 rounded-xl p-3 text-left transition hover:border-indigo-300" data-style="story" onclick="selectStyle('story')">
+              <span class="text-base block mb-1">📖</span>
+              <span class="text-xs font-bold text-slate-800 block">Story</span>
+              <span class="text-[10px] text-slate-500 block leading-tight">Warmer, 0.9x</span>
+            </button>
+            <button type="button" class="style-card border border-slate-200 rounded-xl p-3 text-left transition hover:border-indigo-300" data-style="education" onclick="selectStyle('education')">
+              <span class="text-base block mb-1">🎓</span>
+              <span class="text-xs font-bold text-slate-800 block">Education</span>
+              <span class="text-[10px] text-slate-500 block leading-tight">Clear, 0.85x</span>
+            </button>
+            <button type="button" class="style-card border border-slate-200 rounded-xl p-3 text-left transition hover:border-indigo-300" data-style="casual" onclick="selectStyle('casual')">
+              <span class="text-base block mb-1">☕</span>
+              <span class="text-xs font-bold text-slate-800 block">Casual</span>
+              <span class="text-[10px] text-slate-500 block leading-tight">Brisk, 1.05x</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Voice & Pace Details -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div>
+            <label for="select-speaker" class="block text-xs font-medium text-slate-700 mb-1">Voice Persona</label>
+            <select id="select-speaker" class="w-full text-sm rounded-xl border border-slate-300 p-2.5 focus:border-indigo-500 outline-none bg-white font-medium text-slate-800">
+              <!-- Populated via API -->
+            </select>
+          </div>
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="pace-slider" class="text-xs font-medium text-slate-700">Speech Pace</label>
+              <span id="pace-display" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">1.0x</span>
+            </div>
+            <input type="range" id="pace-slider" min="0.5" max="2.0" step="0.05" value="1.0" class="w-full accent-indigo-600 mt-2 cursor-pointer" oninput="updatePaceDisplay(this.value)">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+              <span>0.5x Slow</span>
+              <span>1.0x Normal</span>
+              <span>2.0x Fast</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="pt-4 border-t border-slate-100">
+          <button type="button" id="btn-generate" onclick="startNarration()" class="w-full py-3.5 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm tracking-wide shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2">
+            <span>🎧 Generate Narration</span>
+          </button>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Live Player & Process Output (5 cols) -->
+      <section class="lg:col-span-5 space-y-6">
+        
+        <!-- Status & Progress Card -->
+        <div id="progress-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Processing Status</span>
+            <span id="badge-status" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Queued
+            </span>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-medium text-slate-600">
+              <span id="progress-label">Synthesizing audio...</span>
+              <span id="progress-percent">0%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+              <div id="progress-bar-fill" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+          <p id="progress-subtext" class="text-xs text-slate-400">Chunking sentences and communicating with Sarvam AI API...</p>
+        </div>
+
+        <!-- Audio Player Card -->
+        <div id="player-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4 hidden">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Audio Ready</span>
+              <h3 id="result-title" class="text-sm font-bold text-slate-900 mt-1 line-clamp-2">Narrated Audio</h3>
+              <p id="result-meta" class="text-xs text-slate-400 mt-0.5">Duration: --</p>
+            </div>
+            <a id="btn-download" href="#" download="narration.wav" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Download WAV
+            </a>
+          </div>
+
+          <div class="pt-2">
+            <audio id="audio-player" controls class="w-full h-10 rounded-lg outline-none"></audio>
+          </div>
+        </div>
+
+        <!-- Final Text Preview Card -->
+        <div id="text-preview-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Narrated Content Transcript</h4>
+            <button type="button" onclick="copyTranscript()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition">
+              Copy Text
+            </button>
+          </div>
+          <div id="result-transcript" class="text-sm text-slate-700 bg-slate-50 rounded-xl p-3.5 border border-slate-200 max-h-72 overflow-y-auto leading-relaxed whitespace-pre-wrap select-text"></div>
+        </div>
+
+        <!-- Initial Placeholder Card -->
+        <div id="placeholder-card" class="bg-gradient-to-br from-indigo-50/60 to-slate-50 rounded-2xl border border-dashed border-indigo-200/80 p-8 text-center space-y-3">
+          <div class="w-12 h-12 rounded-full bg-white text-indigo-600 shadow-sm flex items-center justify-center mx-auto text-xl">
+            🎙️
+          </div>
+          <h3 class="text-sm font-bold text-slate-800">Ready to Narrate</h3>
+          <p class="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+            Choose your text, document or URL on the left. Hit generate to produce smooth, sentence-chunked Indian audio.
+          </p>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-auto">
+    Sarvam Narrator MVP &bull; Powered by Sarvam AI Bulbul v3 & Mayura &bull; Python FastAPI
+  </footer>
+
+  <script>
+    // Global State
+    let voicesData = null;
+    let currentTab = 'paste';
+    let currentStyle = 'news';
+    let activePollTimer = null;
+
+    // Toast helper
+    function showToast(message, type = 'error') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const isErr = type === 'error';
+      toast.className = `p-3.5 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 pointer-events-auto flex items-start gap-2.5 ${
+        isErr ? 'bg-red-50 text-red-800 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+      }`;
+      toast.innerHTML = `
+        <span class="text-base">${isErr ? '⚠️' : '✅'}</span>
+        <div class="flex-1 text-xs leading-normal">${message}</div>
+        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 ml-1">&times;</button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        currentTab = btn.getAttribute('data-tab');
+        document.getElementById(`tab-content-${currentTab}`).classList.remove('hidden');
+      });
+    });
+
+    // Character counter for textarea
+    const textArea = document.getElementById('input-text');
+    const charCounter = document.getElementById('char-counter');
+    textArea.addEventListener('input', () => {
+      const len = textArea.value.length;
+      charCounter.innerText = `${len.toLocaleString()} / 20,000`;
+      if (len > 20000) {
+        charCounter.classList.add('text-red-500', 'font-bold');
+      } else {
+        charCounter.classList.remove('text-red-500', 'font-bold');
+      }
+    });
+
+    function handleFileSelected(input) {
+      const fileLabel = document.getElementById('file-label');
+      if (input.files && input.files[0]) {
+        fileLabel.innerText = `Selected: ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+        fileLabel.classList.add('text-indigo-600');
+      } else {
+        fileLabel.innerText = 'Click to select or drop a file here';
+        fileLabel.classList.remove('text-indigo-600');
+      }
+    }
+
+    function toggleTranslateSection() {
+      const checked = document.getElementById('toggle-translate').checked;
+      const drawer = document.getElementById('translate-drawer');
+      if (checked) {
+        drawer.classList.remove('hidden');
+      } else {
+        drawer.classList.add('hidden');
+      }
+    }
+
+    function updatePaceDisplay(val) {
+      document.getElementById('pace-display').innerText = `${parseFloat(val).toFixed(2)}x`;
+    }
+
+    function selectStyle(styleKey) {
+      currentStyle = styleKey;
+      document.querySelectorAll('.style-card').forEach(c => {
+        if (c.getAttribute('data-style') === styleKey) {
+          c.classList.add('selected');
+        } else {
+          c.classList.remove('selected');
+        }
+      });
+      if (voicesData && voicesData.styles && voicesData.styles[styleKey]) {
+        const preset = voicesData.styles[styleKey];
+        const speakerSel = document.getElementById('select-speaker');
+        speakerSel.value = preset.speaker;
+        const paceSlider = document.getElementById('pace-slider');
+        paceSlider.value = preset.pace;
+        updatePaceDisplay(preset.pace);
+      }
+    }
+
+    // Load sample texts
+    function loadSample(lang) {
+      const ta = document.getElementById('input-text');
+      if (lang === 'hindi') {
+        ta.value = "सर्वम एआई भारत के लिए उच्च कोटि के कृत्रिम बुद्धिमत्ता मॉडल विकसित कर रहा है।\n\nबुलबुल मॉडल ग्यारह से अधिक भारतीय भाषाओं में अत्यंत स्वाभाविक और स्पष्ट आवाज़ प्रदान करता है। यह समाचार, कहानियों और शिक्षा के लिए एक बेहतरीन माध्यम है।";
+        document.getElementById('select-language').value = 'hi-IN';
+      } else {
+        ta.value = "The morning sun climbed slowly above the snow-capped mountain peaks.\n\nA solitary eagle circled in the clear blue sky, scanning the lush green valley below. It was going to be a day of extraordinary discovery.";
+        document.getElementById('select-language').value = 'en-IN';
+      }
+      ta.dispatchEvent(new Event('input'));
+    }
+
+    // Initialize voices & options from API
+    async function loadVoices() {
+      try {
+        const res = await fetch('/api/voices');
+        voicesData = await res.json();
+
+        // Populate Languages
+        const langSelect = document.getElementById('select-language');
+        const targetLangSelect = document.getElementById('select-target-lang');
+        langSelect.innerHTML = '';
+        targetLangSelect.innerHTML = '';
+
+        voicesData.languages.forEach(l => {
+          const opt1 = document.createElement('option');
+          opt1.value = l.code;
+          opt1.innerText = l.name;
+          langSelect.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = l.code;
+          opt2.innerText = l.name;
+          targetLangSelect.appendChild(opt2);
+        });
+
+        // Default language: Hindi
+        langSelect.value = 'hi-IN';
+        targetLangSelect.value = 'en-IN';
+
+        // Populate Speakers
+        const speakerSelect = document.getElementById('select-speaker');
+        speakerSelect.innerHTML = '';
+        voicesData.speakers.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.innerText = `${s.name} (${s.gender}) — ${s.desc}`;
+          speakerSelect.appendChild(opt);
+        });
+        speakerSelect.value = 'shubh';
+
+      } catch (err) {
+        showToast('Failed to load voice configuration from backend: ' + err.message);
+      }
+    }
+
+    // Start Narration
+    async function startNarration() {
+      const btn = document.getElementById('btn-generate');
+      const progressCard = document.getElementById('progress-card');
+      const placeholderCard = document.getElementById('placeholder-card');
+      const playerCard = document.getElementById('player-card');
+      const textPreviewCard = document.getElementById('text-preview-card');
+
+      const formData = new FormData();
+      formData.append('language', document.getElementById('select-language').value);
+      formData.append('speaker', document.getElementById('select-speaker').value);
+      formData.append('pace', document.getElementById('pace-slider').value);
+      formData.append('style', currentStyle);
+      formData.append('model', 'bulbul:v3');
+
+      // Translation toggle
+      const isTranslate = document.getElementById('toggle-translate').checked;
+      if (isTranslate) {
+        formData.append('translate_to', document.getElementById('select-target-lang').value);
+        formData.append('translate_mode', document.getElementById('select-translate-mode').value);
+      }
+
+      // Input source
+      if (currentTab === 'paste') {
+        const val = document.getElementById('input-text').value.trim();
+        if (!val) {
+          showToast('Please enter some text in the text area.');
+          return;
+        }
+        formData.append('text', val);
+      } else if (currentTab === 'upload') {
+        const fileInput = document.getElementById('input-file');
+        if (!fileInput.files || !fileInput.files[0]) {
+          showToast('Please select a .txt, .md, or .pdf file.');
+          return;
+        }
+        formData.append('file', fileInput.files[0]);
+      } else if (currentTab === 'url') {
+        const urlVal = document.getElementById('input-url').value.trim();
+        if (!urlVal) {
+          showToast('Please enter an article URL.');
+          return;
+        }
+        formData.append('url', urlVal);
+      }
+
+      // UI changes
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Starting Narration...`;
+      
+      placeholderCard.classList.add('hidden');
+      playerCard.classList.add('hidden');
+      textPreviewCard.classList.add('hidden');
+      progressCard.classList.remove('hidden');
+
+      updateProgressBar(0, 'Queued', 'Initializing job...');
+
+      try {
+        const res = await fetch('/api/narrate', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || 'Failed to submit narration request.');
+        }
+
+        const data = await res.json();
+        pollJob(data.job_id);
+
+      } catch (err) {
+        showToast(err.message);
+        resetGenerateButton();
+        progressCard.classList.add('hidden');
+        placeholderCard.classList.remove('hidden');
+      }
+    }
+
+    function updateProgressBar(percent, statusText, subText) {
+      document.getElementById('badge-status').innerText = statusText;
+      document.getElementById('progress-percent').innerText = `${percent}%`;
+      document.getElementById('progress-bar-fill').style.width = `${percent}%`;
+      if (subText) {
+        document.getElementById('progress-label').innerText = subText;
+      }
+    }
+
+    function pollJob(jobId) {
+      if (activePollTimer) clearInterval(activePollTimer);
+
+      activePollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/jobs/${jobId}`);
+          if (!res.ok) throw new Error('Could not fetch job status.');
+          const job = await res.json();
+
+          if (job.status === 'queued') {
+            updateProgressBar(5, 'Queued', 'Preparing narration task...');
+          } else if (job.status === 'extracting') {
+            updateProgressBar(15, 'Extracting', 'Parsing text and cleaning formatting...');
+          } else if (job.status === 'translating') {
+            updateProgressBar(30, 'Translating', 'Translating text with Sarvam Mayura...');
+          } else if (job.status === 'synthesizing') {
+            const done = job.progress_done || 0;
+            const total = job.progress_total || 1;
+            const pct = Math.min(90, Math.floor(35 + (done / total) * 55));
+            updateProgressBar(pct, 'Synthesizing', `Synthesizing audio chunk ${done} of ${total}...`);
+          } else if (job.status === 'concatenating') {
+            updateProgressBar(95, 'Concatenating', 'Stitching WAV chunks with paragraph pauses...');
+          } else if (job.status === 'completed') {
+            clearInterval(activePollTimer);
+            updateProgressBar(100, 'Completed', 'Done!');
+            renderCompletedJob(job);
+            resetGenerateButton();
+          } else if (job.status === 'failed') {
+            clearInterval(activePollTimer);
+            showToast(job.error || 'Narration synthesis failed.');
+            resetGenerateButton();
+            document.getElementById('progress-card').classList.add('hidden');
+            document.getElementById('placeholder-card').classList.remove('hidden');
+          }
+        } catch (err) {
+          clearInterval(activePollTimer);
+          showToast('Polling error: ' + err.message);
+          resetGenerateButton();
+        }
+      }, 1000);
+    }
+
+    function renderCompletedJob(job) {
+      document.getElementById('progress-card').classList.add('hidden');
+      
+      const playerCard = document.getElementById('player-card');
+      const textCard = document.getElementById('text-preview-card');
+      
+      document.getElementById('result-title').innerText = job.title || 'Narrated Audio';
+      document.getElementById('result-meta').innerText = `Duration: ${job.duration || 0}s • Paced for Indian Ear`;
+      
+      const player = document.getElementById('audio-player');
+      player.src = job.audio_url;
+      player.load();
+      player.play().catch(() => {}); // Autoplay if permitted
+
+      const downloadBtn = document.getElementById('btn-download');
+      downloadBtn.href = job.audio_url;
+      downloadBtn.download = `${(job.title || 'narration').replace(/[^a-zA-Z0-9_\u0900-\u0D7F]/g, '_').slice(0, 40)}.wav`;
+
+      document.getElementById('result-transcript').innerText = job.final_text || '';
+
+      playerCard.classList.remove('hidden');
+      textCard.classList.remove('hidden');
+      showToast('Narration generated successfully!', 'success');
+    }
+
+    function resetGenerateButton() {
+      const btn = document.getElementById('btn-generate');
+      btn.disabled = false;
+      btn.innerHTML = '<span>🎧 Generate Narration</span>';
+    }
+
+    function copyTranscript() {
+      const text = document.getElementById('result-transcript').innerText;
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('Transcript copied to clipboard!', 'success');
+        });
+      }
+    }
+
+    // Startup
+    loadVoices();
+  </script>
+</body>
+</html>
