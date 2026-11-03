@@ -49,8 +49,9 @@ class SarvamClientWrapper:
         raw_error = f"{body or ''} {err}"
         if "insufficient_quota" in raw_error or "No credits available" in raw_error:
             return (
-                "Sarvam AI account has no credits available. "
-                "Add credits at https://dashboard.sarvam.ai, then try again."
+                "Sarvam AI account has no credits available. Add credits to the "
+                "organisation that owns this API key at https://indus.sarvam.ai/billing, "
+                "then try again."
             )
 
         if status == 401 or status == 403:
