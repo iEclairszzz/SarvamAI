@@ -44,6 +44,15 @@ class SarvamClientWrapper:
             status = status or getattr(err.response, "status_code", None)
             body = body or getattr(err.response, "text", None)
 
+        # Sarvam reports exhausted account credits as a generic API error; turn
+        # it into an actionable message instead of exposing the raw payload.
+        raw_error = f"{body or ''} {err}"
+        if "insufficient_quota" in raw_error or "No credits available" in raw_error:
+            return (
+                "Sarvam AI account has no credits available. "
+                "Add credits at https://dashboard.sarvam.ai, then try again."
+            )
+
         if status == 401 or status == 403:
             return "Sarvam API authentication failed. Please verify your SARVAM_API_KEY."
         elif status == 429:
