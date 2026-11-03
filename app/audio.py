@@ -1,9 +1,26 @@
 import io
+import os
 import wave
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-OUTPUTS_DIR = Path("outputs")
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _default_outputs_dir() -> Path:
+    """Return a writable directory for generated audio.
+
+    Serverless platforms (including Vercel) expose a read-only project
+    filesystem; only ``/tmp`` is writable for the lifetime of an instance.
+    """
+    if os.getenv("OUTPUTS_DIR"):
+        return Path(os.getenv("OUTPUTS_DIR"))
+    if os.getenv("VERCEL"):
+        return Path("/tmp/sarvam-narrator-outputs")
+    return BASE_DIR / "outputs"
+
+
+OUTPUTS_DIR = _default_outputs_dir()
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 class AudioProcessingError(Exception):

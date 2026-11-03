@@ -498,7 +498,7 @@
       textPreviewCard.classList.add('hidden');
       progressCard.classList.remove('hidden');
 
-      updateProgressBar(0, 'Queued', 'Initializing job...');
+      updateProgressBar(5, 'Processing', 'Extracting, translating and synthesizing audio...');
 
       try {
         const res = await fetch('/api/narrate', {
@@ -512,7 +512,19 @@
         }
 
         const data = await res.json();
-        pollJob(data.job_id);
+
+        // Local development responds immediately with a job id and the UI
+        // polls for progress. Serverless deployments (Vercel) run the job
+        // synchronously and return the finished result in this response.
+        if (data.status === 'completed') {
+          updateProgressBar(100, 'Completed', 'Done!');
+          renderCompletedJob(data);
+          resetGenerateButton();
+        } else if (data.status === 'failed') {
+          throw new Error(data.error || 'Narration synthesis failed.');
+        } else {
+          pollJob(data.job_id);
+        }
 
       } catch (err) {
         showToast(err.message);

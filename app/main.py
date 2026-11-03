@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 from app.chunker import chunk_text_for_tts
 from app.extract import extract_from_text, extract_from_file, extract_from_url, InputTooLargeError, ExtractionError
 from app.sarvam_client import SarvamClientWrapper, SarvamAPIException
-from app.audio import concatenate_wav_chunks, OUTPUTS_DIR
+from app.audio import concatenate_wav_chunks, AudioProcessingError, OUTPUTS_DIR
+from app.storage import upload_audio_to_blob, audio_data_uri
 from app.presets import (
     SUPPORTED_LANGUAGES,
     SPEAKERS,
@@ -25,9 +26,17 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("sarvam_narrator")
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
+
+# Vercel sets VERCEL=1 in every function invocation. Serverless functions have
+# no shared memory between requests, so narration is executed synchronously and
+# audio is persisted to Vercel Blob instead of the local filesystem.
+IS_SERVERLESS = bool(os.getenv("VERCEL"))
+
 app = FastAPI(title="Sarvam Narrator", description="Multilingual TTS Content Reader powered by Sarvam AI")
 
-# In-memory jobs store
+# In-memory jobs store (per-process; used for local polling)
 jobs: Dict[str, Dict[str, Any]] = {}
 
 def process_narration_job(
@@ -112,13 +121,31 @@ def process_narration_job(
         job["status"] = "concatenating"
         out_filename = f"{job_id}.wav"
         out_path, duration = concatenate_wav_chunks(audio_chunks, out_filename, silence_ms=250)
+        job["duration"] = round(duration, 2)
+
+        if IS_SERVERLESS:
+            # The function filesystem is ephemeral, so persist the WAV somewhere
+            # the browser can fetch it from (Vercel Blob).
+            audio_url = upload_audio_to_blob(out_path, job_id)
+            if audio_url is None:
+                audio_url = audio_data_uri(out_path)
+            if audio_url is None:
+                raise AudioProcessingError(
+                    "Generated audio is too large for this deployment. "
+                    "Configure BLOB_READ_WRITE_TOKEN (Vercel Blob) to store narration audio."
+                )
+            job["audio_url"] = audio_url
+            try:
+                out_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        else:
+            job["audio_url"] = f"/api/audio/{out_filename}"
 
         job["status"] = "completed"
-        job["audio_url"] = f"/api/audio/{out_filename}"
-        job["duration"] = round(duration, 2)
         logger.info(f"Job {job_id} completed successfully ({duration:.1f}s). File saved to {out_path}")
 
-    except (InputTooLargeError, ExtractionError, SarvamAPIException) as e:
+    except (InputTooLargeError, ExtractionError, SarvamAPIException, AudioProcessingError) as e:
         logger.warning(f"Job {job_id} business error: {e}")
         job["status"] = "failed"
         job["error"] = str(e)
@@ -126,6 +153,8 @@ def process_narration_job(
         logger.exception(f"Job {job_id} unexpected error: {e}")
         job["status"] = "failed"
         job["error"] = f"An unexpected error occurred: {str(e)}"
+
+    return job
 
 
 @app.get("/api/voices")
@@ -187,9 +216,7 @@ async def narrate(
         "error": None,
     }
 
-    background_tasks.add_task(
-        process_narration_job,
-        job_id=job_id,
+    job_kwargs = dict(
         raw_text=text,
         file_bytes=file_bytes,
         filename=filename,
@@ -202,6 +229,13 @@ async def narrate(
         pace=pace,
         model=model or "bulbul:v3",
     )
+
+    if IS_SERVERLESS:
+        # Serverless instances do not share memory between requests, so run the
+        # job before responding and return the finished result directly.
+        return process_narration_job(job_id=job_id, **job_kwargs)
+
+    background_tasks.add_task(process_narration_job, job_id=job_id, **job_kwargs)
 
     return {"job_id": job_id, "status": "queued"}
 
@@ -227,7 +261,15 @@ def get_audio(filename: str):
         filename=safe_filename,
     )
 
+@app.get("/api/health")
+def health():
+    """Lightweight readiness probe for the deployed environment."""
+    return {
+        "status": "ok",
+        "serverless": IS_SERVERLESS,
+        "blob_storage": bool(os.getenv("BLOB_READ_WRITE_TOKEN")),
+    }
+
 # Static files for Single Page App
-static_dir = Path("static")
-static_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+if STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
