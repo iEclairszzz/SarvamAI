@@ -87,23 +87,34 @@ Open your browser at **`http://localhost:8000`** to start narrating!
    - Used official `sarvamai` SDK (`sarvamai.SarvamAI`).
    - TTS parameter is verified as `language_code` (e.g. `hi-IN`), NOT `target_language_code`.
    - TTS output format returns base64-encoded audio strings in `response.audios[0]`, decoded to raw PCM WAV bytes.
-2. **Model Selection**:
+2. **Listening Continuity & Bookmarks Without Browser LocalStorage**:
+   - Designed for live deployment: playback positions, listening history, and timestamps are stored on the server via SQLite database (`app/db.py`) and REST APIs.
+   - Users can resume playback from the exact second they left off on any device or page reload.
+   - Timestamped bookmarks can be created with one click during listening.
+3. **Synchronized Interactive Reading (Karaoke-Style Text Highlighting)**:
+   - Chunk synthesis measures raw audio frames to compute exact start and end timestamps for every sentence across paragraphs.
+   - Spoken sentences highlight in real-time as the audio plays, with optional automatic auto-scrolling into view.
+   - Clicking any sentence in the transcript immediately jumps audio playback to that exact moment.
+4. **Voice Audition & Multi-Persona Comparison**:
+   - Instant 1-click preview button (`🔊 Preview`) plays a short sample greeting in the selected language.
+   - Interactive **Voice Catalog Modal** (`🎭 Compare`) allows users to audition and compare all 11 Sarvam personas (Shubh, Priya, Ritu, Aditya, Rahul, Simran, etc.) side-by-side before generating.
+5. **Model Selection**:
    - Primary TTS: `bulbul:v3` (stable default, supporting 11 Indian languages + Indian English, with 30+ curated voices).
    - Translation: `mayura:v1` (supports auto-language detection, 11 languages, and stylistic tones: `formal`, `modern-colloquial`, `classic-colloquial`, `code-mixed`).
    - Fallback translation: `sarvam-translate:v1` automatically selected if extended scheduled languages are used.
-3. **Natural Indic Pacing Without SSML**:
+6. **Natural Indic Pacing Without SSML**:
    - Bulbul v3 does not support SSML. To achieve content styles without pseudo-tag workarounds:
      - **News**: Steady persona voice (`shubh`), standard pace `1.0x`.
      - **Story**: Warm, expressive persona voice (`priya`), slightly slower pace `0.9x`.
      - **Education**: Crisp, instructional persona voice (`ritu`), measured pace `0.85x`.
      - **Casual**: Modern, conversational voice (`aditya`), brisk pace `1.05x`.
    - Paragraph boundaries naturally insert **~250ms silence** using standard PCM frame zero-padding, producing natural breathing pauses between sections.
-4. **Greedy Sentence Chunking & Indic Punctuation**:
+7. **Greedy Sentence Chunking & Indic Punctuation**:
    - Sentence splitting regex handles standard punctuation (`.`, `?`, `!`) and Devanagari danda (`।`, `॥`).
    - Oversized sentences split gracefully at commas, then words, preventing mid-word cuts.
    - Max 2,000 characters per TTS request (well below API 2,500 limit).
    - Max 900 characters per translation request (well below Mayura 1,000 limit).
-5. **Zero-Build, Highly Responsive Frontend**:
+8. **Zero-Build, Highly Responsive Frontend**:
    - Single static `index.html` served directly by FastAPI.
    - Tailwind CSS CDN + vanilla JS for instant setup without node/npm/vite overhead.
    - 1-second interval polling for background jobs with clear progress states and error toasts.

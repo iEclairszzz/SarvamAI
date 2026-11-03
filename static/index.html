@@ -19,11 +19,30 @@
       border-color: #4F46E5;
       background-color: #EEF2FF;
     }
+    .sentence-active {
+      background-color: #4F46E5 !important;
+      color: #ffffff !important;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+      border-radius: 0.375rem;
+      padding: 2px 6px;
+    }
+    /* Custom scrollbar for transcript */
+    #result-transcript-box::-webkit-scrollbar {
+      width: 6px;
+    }
+    #result-transcript-box::-webkit-scrollbar-thumb {
+      background-color: #CBD5E1;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none"></div>
+
+  <!-- Hidden Voice Audition Audio Element -->
+  <audio id="preview-audio" class="hidden"></audio>
 
   <!-- Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
@@ -40,8 +59,15 @@
           <p class="text-xs text-slate-500">Multilingual audio reader for articles, documents & text</p>
         </div>
       </div>
-      <div class="flex items-center gap-2 text-xs text-slate-500">
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+      
+      <div class="flex items-center gap-3">
+        <button type="button" onclick="openHistoryDrawer()" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-sm transition">
+          <span>📜</span>
+          <span>Listening History</span>
+          <span id="history-badge" class="px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px]">0</span>
+        </button>
+
+        <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium text-xs">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           Bulbul v3 Connected
         </span>
@@ -100,7 +126,7 @@
         <div id="tab-content-url" class="tab-panel hidden space-y-2">
           <label for="input-url" class="text-xs font-semibold text-slate-700">Article or Webpage URL</label>
           <div class="relative">
-            <input type="url" id="input-url" class="w-full text-sm rounded-xl border border-slate-300 pl-10 pr-3.5 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition placeholder:text-slate-400" placeholder="https://en.wikipedia.org/wiki/India">
+            <input type="url" id="input-url" class="w-full text-sm rounded-xl border border-slate-300 pl-10 pr-3.5 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition placeholder:text-slate-400" placeholder="https://en.wikipedia.org/wiki/National_emblem_of_India">
             <span class="absolute left-3.5 top-3.5 text-slate-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
             </span>
@@ -185,10 +211,21 @@
           </div>
         </div>
 
-        <!-- Voice & Pace Details -->
+        <!-- Voice & Pace Details with Instant Audition & Comparison -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div>
-            <label for="select-speaker" class="block text-xs font-medium text-slate-700 mb-1">Voice Persona</label>
+            <div class="flex items-center justify-between mb-1">
+              <label for="select-speaker" class="text-xs font-medium text-slate-700">Voice Persona</label>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btn-preview-voice" onclick="previewCurrentVoice()" class="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition">
+                  <span id="preview-voice-icon">🔊</span>
+                  <span id="preview-voice-text">Preview</span>
+                </button>
+                <button type="button" onclick="openVoiceCompareModal()" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition">
+                  <span>🎭 Compare</span>
+                </button>
+              </div>
+            </div>
             <select id="select-speaker" class="w-full text-sm rounded-xl border border-slate-300 p-2.5 focus:border-indigo-500 outline-none bg-white font-medium text-slate-800">
               <!-- Populated via API -->
             </select>
@@ -240,8 +277,25 @@
           <p id="progress-subtext" class="text-xs text-slate-400">Chunking sentences and communicating with Sarvam AI API...</p>
         </div>
 
-        <!-- Audio Player Card -->
+        <!-- Audio Player Card with Listening Continuity & Bookmarks -->
         <div id="player-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4 hidden">
+          
+          <!-- Resume Prompt Banner (Feature 1) -->
+          <div id="resume-banner" class="hidden p-3 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-indigo-600 text-sm">⏱️</span>
+              <span class="text-xs text-indigo-900 font-medium">Stopped at <strong id="resume-time-str">00:00</strong></span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="resumeSavedPlayback()" class="text-xs px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition">
+                ▶️ Resume
+              </button>
+              <button type="button" onclick="dismissResumeBanner()" class="text-xs px-2 py-1 text-slate-400 hover:text-slate-600">
+                &times;
+              </button>
+            </div>
+          </div>
+
           <div class="flex items-start justify-between gap-3">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Audio Ready</span>
@@ -254,20 +308,50 @@
             </a>
           </div>
 
-          <div class="pt-2">
+          <div class="pt-1">
             <audio id="audio-player" controls class="w-full h-10 rounded-lg outline-none"></audio>
+          </div>
+
+          <!-- Bookmarks Control Bar (Feature 1) -->
+          <div class="pt-2 border-t border-slate-100 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <span>🔖</span> Bookmarks & Key Moments
+              </span>
+              <button type="button" onclick="addCurrentBookmark()" class="text-xs px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold border border-indigo-200 transition">
+                + Bookmark Here
+              </button>
+            </div>
+            <div id="bookmarks-list" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+              <span class="text-xs text-slate-400 italic">No bookmarks saved yet. Click "+ Bookmark Here" while listening.</span>
+            </div>
           </div>
         </div>
 
-        <!-- Final Text Preview Card -->
+        <!-- Synchronized Interactive Reading Transcript (Feature 2) -->
         <div id="text-preview-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3 hidden">
           <div class="flex items-center justify-between">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Narrated Content Transcript</h4>
-            <button type="button" onclick="copyTranscript()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition">
-              Copy Text
-            </button>
+            <div class="flex items-center gap-2">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Synchronized Transcript</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">
+                Click sentence to jump
+              </span>
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+                <input type="checkbox" id="toggle-autoscroll" checked class="accent-indigo-600 rounded">
+                <span>Auto-scroll</span>
+              </label>
+              <button type="button" onclick="copyTranscript()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition">
+                Copy
+              </button>
+            </div>
           </div>
-          <div id="result-transcript" class="text-sm text-slate-700 bg-slate-50 rounded-xl p-3.5 border border-slate-200 max-h-72 overflow-y-auto leading-relaxed whitespace-pre-wrap select-text"></div>
+          
+          <!-- Clickable, karaoke-style highlighted transcript box -->
+          <div id="result-transcript-box" class="text-sm text-slate-700 bg-slate-50 rounded-xl p-4 border border-slate-200 max-h-80 overflow-y-auto leading-relaxed select-text space-y-1">
+            <!-- Populated dynamically with sentence spans -->
+          </div>
         </div>
 
         <!-- Initial Placeholder Card -->
@@ -277,7 +361,7 @@
           </div>
           <h3 class="text-sm font-bold text-slate-800">Ready to Narrate</h3>
           <p class="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
-            Choose your text, document or URL on the left. Hit generate to produce smooth, sentence-chunked Indian audio.
+            Choose your text, document or URL on the left. Hit generate to produce smooth, sentence-chunked Indian audio with synchronized karaoke reading.
           </p>
         </div>
 
@@ -286,17 +370,73 @@
     </div>
   </main>
 
+  <!-- History Slide-over Drawer (Feature 1: Server-Stored History) -->
+  <div id="history-drawer" class="fixed inset-0 z-50 overflow-hidden hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeHistoryDrawer()"></div>
+    <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+      <div class="pointer-events-auto w-screen max-w-md transform transition bg-white shadow-2xl flex flex-col">
+        <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span>📜</span> Listening History
+            </h2>
+            <p class="text-xs text-slate-500">Stored on server &bull; Resume where you stopped</p>
+          </div>
+          <button type="button" onclick="closeHistoryDrawer()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        
+        <div id="history-items-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div class="text-center py-12 text-slate-400 text-xs">
+            Loading listening history from server...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice Audition & Comparison Modal (Feature 3) -->
+  <div id="voice-compare-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeVoiceCompareModal()"></div>
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+      
+      <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+        <div class="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span>🎭</span> Compare Sarvam Voice Personas
+            </h3>
+            <p class="text-xs text-slate-500">Listen to sample greetings in the current language before generating.</p>
+          </div>
+          <button type="button" onclick="closeVoiceCompareModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        
+        <div id="voice-catalog-grid" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[70vh] overflow-y-auto">
+          <!-- Dynamically populated voice cards -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-auto">
     Sarvam Narrator MVP &bull; Powered by Sarvam AI Bulbul v3 & Mayura &bull; Python FastAPI
   </footer>
 
   <script>
-    // Global State
+    // Global State (Zero localStorage)
     let voicesData = null;
     let currentTab = 'paste';
     let currentStyle = 'news';
     let activePollTimer = null;
+    let currentJob = null;
+    let currentSentences = [];
+    let positionSaveTimer = null;
+    let activeAuditionSpeaker = null;
 
     // Toast helper
     function showToast(message, type = 'error') {
@@ -316,6 +456,13 @@
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
       }, 5000);
+    }
+
+    function formatTime(seconds) {
+      if (!seconds || isNaN(seconds)) return "00:00";
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
     // Tabs
@@ -438,12 +585,396 @@
         });
         speakerSelect.value = 'shubh';
 
+        refreshHistoryBadge();
+
       } catch (err) {
         showToast('Failed to load voice configuration from backend: ' + err.message);
       }
     }
 
-    // Start Narration
+    // ==========================================
+    // FEATURE 3: Voice Comparison & Audition
+    // ==========================================
+    function previewCurrentVoice() {
+      const speaker = document.getElementById('select-speaker').value;
+      const lang = document.getElementById('select-language').value;
+      playAudition(speaker, lang, document.getElementById('btn-preview-voice'));
+    }
+
+    function playAudition(speaker, lang, triggerBtn) {
+      const audioEl = document.getElementById('preview-audio');
+      const icon = document.getElementById('preview-voice-icon');
+      const text = document.getElementById('preview-voice-text');
+
+      if (activeAuditionSpeaker === speaker && !audioEl.paused) {
+        audioEl.pause();
+        activeAuditionSpeaker = null;
+        if (icon) icon.innerText = '🔊';
+        if (text) text.innerText = 'Preview';
+        return;
+      }
+
+      if (icon) icon.innerText = '⏳';
+      if (text) text.innerText = 'Loading...';
+
+      audioEl.src = `/api/voice-preview?speaker=${encodeURIComponent(speaker)}&language=${encodeURIComponent(lang)}`;
+      audioEl.load();
+
+      audioEl.onplay = () => {
+        activeAuditionSpeaker = speaker;
+        if (icon) icon.innerText = '⏸️';
+        if (text) text.innerText = 'Playing';
+        document.querySelectorAll(`.audition-btn-${speaker}`).forEach(b => b.innerText = '⏸️ Stop');
+      };
+
+      audioEl.onended = audioEl.onpause = () => {
+        activeAuditionSpeaker = null;
+        if (icon) icon.innerText = '🔊';
+        if (text) text.innerText = 'Preview';
+        document.querySelectorAll(`.audition-btn-${speaker}`).forEach(b => b.innerText = '▶️ Listen');
+      };
+
+      audioEl.onerror = () => {
+        activeAuditionSpeaker = null;
+        if (icon) icon.innerText = '🔊';
+        if (text) text.innerText = 'Preview';
+        showToast('Could not load voice preview. Please try again.');
+      };
+
+      audioEl.play().catch(e => {
+        if (icon) icon.innerText = '🔊';
+        if (text) text.innerText = 'Preview';
+      });
+    }
+
+    function openVoiceCompareModal() {
+      const grid = document.getElementById('voice-catalog-grid');
+      const currentSpeaker = document.getElementById('select-speaker').value;
+      const lang = document.getElementById('select-language').value;
+
+      grid.innerHTML = '';
+      if (!voicesData || !voicesData.speakers) return;
+
+      voicesData.speakers.forEach(s => {
+        const isSelected = s.id === currentSpeaker;
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border transition-all ${
+          isSelected ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500' : 'border-slate-200 bg-white hover:border-slate-300'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-bold text-slate-900">${s.name}</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold uppercase ${
+                  s.gender === 'female' ? 'bg-pink-50 text-pink-700 border border-pink-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                }">${s.gender}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">${s.desc}</p>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+            <button type="button" onclick="playAudition('${s.id}', '${lang}', this)" class="audition-btn-${s.id} text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">
+              ▶️ Listen
+            </button>
+            <button type="button" onclick="selectVoiceFromModal('${s.id}')" class="text-xs font-semibold px-3 py-1 rounded-lg ${
+              isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            } transition">
+              ${isSelected ? '✓ Selected' : 'Use Voice'}
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      document.getElementById('voice-compare-modal').classList.remove('hidden');
+    }
+
+    function closeVoiceCompareModal() {
+      document.getElementById('voice-compare-modal').classList.add('hidden');
+    }
+
+    function selectVoiceFromModal(speakerId) {
+      document.getElementById('select-speaker').value = speakerId;
+      closeVoiceCompareModal();
+      showToast(`Selected voice persona: ${speakerId}`, 'success');
+    }
+
+    // ==========================================
+    // FEATURE 1: Server-Stored History & Resume
+    // ==========================================
+    async function refreshHistoryBadge() {
+      try {
+        const res = await fetch('/api/history?limit=100');
+        if (res.ok) {
+          const list = await res.json();
+          document.getElementById('history-badge').innerText = list.length;
+        }
+      } catch (e) {}
+    }
+
+    async function openHistoryDrawer() {
+      const container = document.getElementById('history-items-container');
+      container.innerHTML = '<div class="text-center py-12 text-slate-400 text-xs">Loading history from server...</div>';
+      document.getElementById('history-drawer').classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/history?limit=30');
+        const list = await res.json();
+
+        if (!list || list.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 space-y-2">
+              <span class="text-3xl block">🎙️</span>
+              <p class="text-sm font-semibold text-slate-700">No Listening History Yet</p>
+              <p class="text-xs text-slate-400 max-w-xs mx-auto">Generate a narration and your listening progress and bookmarks will be saved here on the server.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = '';
+        list.forEach(item => {
+          const dur = item.duration || 0;
+          const pos = item.last_position || 0;
+          const pct = dur > 0 ? Math.min(100, Math.round((pos / dur) * 100)) : 0;
+          const isDone = pos >= (dur - 2.0) && dur > 0;
+
+          const card = document.createElement('div');
+          card.className = 'p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 transition shadow-sm space-y-2.5';
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h4 class="text-xs font-bold text-slate-900 line-clamp-1">${item.title || 'Narrated Content'}</h4>
+                <div class="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500">
+                  <span class="px-1.5 py-0.2 bg-slate-100 rounded text-slate-600 font-medium">${item.language}</span>
+                  <span>&bull;</span>
+                  <span>Voice: ${item.speaker}</span>
+                  <span>&bull;</span>
+                  <span>${formatTime(dur)}</span>
+                </div>
+              </div>
+              <button type="button" onclick="loadJobDirectly('${item.job_id}')" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition flex items-center gap-1">
+                <span>▶️</span>
+                <span>${pos > 2 && !isDone ? 'Resume' : 'Play'}</span>
+              </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+                <span>${isDone ? 'Completed' : (pos > 2 ? `Stopped at ${formatTime(pos)}` : 'Not started')}</span>
+                <span>${pct}%</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-indigo-600 h-1.5 rounded-full" style="width: ${pct}%"></div>
+              </div>
+            </div>
+
+            ${item.bookmark_count > 0 ? `
+              <div class="text-[11px] text-indigo-700 font-semibold flex items-center gap-1">
+                <span>🔖</span> <span>${item.bookmark_count} bookmark${item.bookmark_count > 1 ? 's' : ''} saved</span>
+              </div>
+            ` : ''}
+          `;
+          container.appendChild(card);
+        });
+
+      } catch (err) {
+        container.innerHTML = `<div class="text-center py-12 text-red-500 text-xs">Error loading history: ${err.message}</div>`;
+      }
+    }
+
+    function closeHistoryDrawer() {
+      document.getElementById('history-drawer').classList.add('hidden');
+    }
+
+    async function loadJobDirectly(jobId) {
+      closeHistoryDrawer();
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) throw new Error('Could not retrieve narration from server.');
+        const job = await res.json();
+        renderCompletedJob(job);
+      } catch (e) {
+        showToast(e.message);
+      }
+    }
+
+    // Auto-save playback position to server (No LocalStorage)
+    function trackPlaybackPosition(jobId) {
+      const audio = document.getElementById('audio-player');
+      
+      const savePosition = async () => {
+        if (!currentJob || currentJob.job_id !== jobId) return;
+        const pos = audio.currentTime;
+        try {
+          await fetch(`/api/jobs/${jobId}/position`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ position: pos })
+          });
+          currentJob.last_position = pos;
+        } catch (e) {}
+      };
+
+      // Throttled timeupdate listener
+      audio.ontimeupdate = () => {
+        updateSynchronizedHighlight(audio.currentTime);
+
+        const now = Date.now();
+        if (!positionSaveTimer || now - positionSaveTimer > 3000) {
+          positionSaveTimer = now;
+          savePosition();
+        }
+      };
+
+      audio.onpause = audio.onended = savePosition;
+    }
+
+    function resumeSavedPlayback() {
+      const audio = document.getElementById('audio-player');
+      if (currentJob && currentJob.last_position > 0) {
+        audio.currentTime = currentJob.last_position;
+        audio.play().catch(() => {});
+        dismissResumeBanner();
+      }
+    }
+
+    function dismissResumeBanner() {
+      document.getElementById('resume-banner').classList.add('hidden');
+    }
+
+    // Bookmarks (Server-Stored)
+    async function addCurrentBookmark() {
+      if (!currentJob) return;
+      const audio = document.getElementById('audio-player');
+      const time = audio.currentTime;
+      
+      // Look up current spoken sentence text as label
+      let label = `Bookmark at ${formatTime(time)}`;
+      const activeSent = currentSentences.find(s => time >= s.start && time <= s.end);
+      if (activeSent) {
+        label = activeSent.text.slice(0, 40) + '...';
+      }
+
+      try {
+        const res = await fetch(`/api/jobs/${currentJob.job_id}/bookmarks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ time: time, label: label })
+        });
+        if (!res.ok) throw new Error('Failed to save bookmark.');
+        const bm = await res.json();
+        
+        if (!currentJob.bookmarks) currentJob.bookmarks = [];
+        currentJob.bookmarks.push(bm);
+        renderBookmarks(currentJob.bookmarks);
+        showToast(`Saved bookmark at ${formatTime(time)}`, 'success');
+      } catch (e) {
+        showToast(e.message);
+      }
+    }
+
+    async function removeBookmark(bmId, event) {
+      if (event) event.stopPropagation();
+      if (!currentJob) return;
+      try {
+        await fetch(`/api/jobs/${currentJob.job_id}/bookmarks/${bmId}`, { method: 'DELETE' });
+        currentJob.bookmarks = currentJob.bookmarks.filter(b => b.id !== bmId);
+        renderBookmarks(currentJob.bookmarks);
+      } catch (e) {
+        showToast('Failed to delete bookmark.');
+      }
+    }
+
+    function renderBookmarks(bookmarks) {
+      const container = document.getElementById('bookmarks-list');
+      if (!bookmarks || bookmarks.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400 italic">No bookmarks saved yet. Click "+ Bookmark Here" while listening.</span>';
+        return;
+      }
+      container.innerHTML = '';
+      bookmarks.forEach(bm => {
+        const pill = document.createElement('div');
+        pill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-medium cursor-pointer hover:bg-indigo-100 transition';
+        pill.onclick = () => {
+          const audio = document.getElementById('audio-player');
+          audio.currentTime = bm.time_sec;
+          audio.play().catch(() => {});
+        };
+        pill.innerHTML = `
+          <span>🔖 ${formatTime(bm.time_sec)}</span>
+          <span class="text-slate-400 hover:text-red-500 ml-1 font-bold" onclick="removeBookmark('${bm.id}', event)">&times;</span>
+        `;
+        container.appendChild(pill);
+      });
+    }
+
+    // ==========================================
+    // FEATURE 2: Synchronized Interactive Reading
+    // ==========================================
+    function renderSynchronizedTranscript(sentences, fallbackText) {
+      const box = document.getElementById('result-transcript-box');
+      box.innerHTML = '';
+      currentSentences = sentences || [];
+
+      if (!sentences || sentences.length === 0) {
+        // Fallback plain text if no sentence timestamps
+        box.innerText = fallbackText || '';
+        return;
+      }
+
+      sentences.forEach(s => {
+        const span = document.createElement('span');
+        span.id = `sent-${s.id}`;
+        span.className = 'sentence-node cursor-pointer transition-all duration-150 rounded px-1 py-0.5 inline hover:bg-indigo-100 hover:text-indigo-950';
+        span.innerText = s.text + ' ';
+        span.onclick = () => seekToSentence(s.start);
+        box.appendChild(span);
+
+        // Render paragraph break spacer
+        if (s.is_paragraph_end) {
+          const br = document.createElement('div');
+          br.className = 'h-3';
+          box.appendChild(br);
+        }
+      });
+    }
+
+    function updateSynchronizedHighlight(currentTime) {
+      if (!currentSentences || currentSentences.length === 0) return;
+
+      const active = currentSentences.find(s => currentTime >= s.start && currentTime <= s.end);
+      
+      // Clear previous active highlights
+      document.querySelectorAll('.sentence-active').forEach(el => {
+        el.classList.remove('sentence-active');
+      });
+
+      if (active) {
+        const activeEl = document.getElementById(`sent-${active.id}`);
+        if (activeEl) {
+          activeEl.classList.add('sentence-active');
+
+          const autoScroll = document.getElementById('toggle-autoscroll').checked;
+          if (autoScroll) {
+            activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+    }
+
+    function seekToSentence(startSec) {
+      const audio = document.getElementById('audio-player');
+      audio.currentTime = startSec;
+      audio.play().catch(() => {});
+    }
+
+    // ==========================================
+    // Core Generation & Polling
+    // ==========================================
     async function startNarration() {
       const btn = document.getElementById('btn-generate');
       const progressCard = document.getElementById('progress-card');
@@ -489,7 +1020,6 @@
         formData.append('url', urlVal);
       }
 
-      // UI changes
       btn.disabled = true;
       btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Starting Narration...`;
       
@@ -498,7 +1028,7 @@
       textPreviewCard.classList.add('hidden');
       progressCard.classList.remove('hidden');
 
-      updateProgressBar(5, 'Processing', 'Extracting, translating and synthesizing audio...');
+      updateProgressBar(0, 'Queued', 'Initializing job...');
 
       try {
         const res = await fetch('/api/narrate', {
@@ -512,19 +1042,7 @@
         }
 
         const data = await res.json();
-
-        // Local development responds immediately with a job id and the UI
-        // polls for progress. Serverless deployments (Vercel) run the job
-        // synchronously and return the finished result in this response.
-        if (data.status === 'completed') {
-          updateProgressBar(100, 'Completed', 'Done!');
-          renderCompletedJob(data);
-          resetGenerateButton();
-        } else if (data.status === 'failed') {
-          throw new Error(data.error || 'Narration synthesis failed.');
-        } else {
-          pollJob(data.job_id);
-        }
+        pollJob(data.job_id);
 
       } catch (err) {
         showToast(err.message);
@@ -564,12 +1082,13 @@
             const pct = Math.min(90, Math.floor(35 + (done / total) * 55));
             updateProgressBar(pct, 'Synthesizing', `Synthesizing audio chunk ${done} of ${total}...`);
           } else if (job.status === 'concatenating') {
-            updateProgressBar(95, 'Concatenating', 'Stitching WAV chunks with paragraph pauses...');
+            updateProgressBar(95, 'Concatenating', 'Stitching WAV chunks and computing sentence timings...');
           } else if (job.status === 'completed') {
             clearInterval(activePollTimer);
             updateProgressBar(100, 'Completed', 'Done!');
             renderCompletedJob(job);
             resetGenerateButton();
+            refreshHistoryBadge();
           } else if (job.status === 'failed') {
             clearInterval(activePollTimer);
             showToast(job.error || 'Narration synthesis failed.');
@@ -586,28 +1105,44 @@
     }
 
     function renderCompletedJob(job) {
+      currentJob = job;
       document.getElementById('progress-card').classList.add('hidden');
       
       const playerCard = document.getElementById('player-card');
       const textCard = document.getElementById('text-preview-card');
       
       document.getElementById('result-title').innerText = job.title || 'Narrated Audio';
-      document.getElementById('result-meta').innerText = `Duration: ${job.duration || 0}s • Paced for Indian Ear`;
+      document.getElementById('result-meta').innerText = `Duration: ${job.duration || 0}s &bull; Voice: ${job.speaker || 'shubh'} &bull; Paced for Indian Ear`;
       
       const player = document.getElementById('audio-player');
       player.src = job.audio_url;
       player.load();
-      player.play().catch(() => {}); // Autoplay if permitted
 
+      // Check if resume banner should show
+      const resumeBanner = document.getElementById('resume-banner');
+      if (job.last_position && job.last_position > 3.0 && job.last_position < ((job.duration || 100) - 2.0)) {
+        document.getElementById('resume-time-str').innerText = formatTime(job.last_position);
+        resumeBanner.classList.remove('hidden');
+      } else {
+        resumeBanner.classList.add('hidden');
+        player.play().catch(() => {});
+      }
+
+      // Track playback position
+      trackPlaybackPosition(job.job_id);
+
+      // Download button
       const downloadBtn = document.getElementById('btn-download');
       downloadBtn.href = job.audio_url;
       downloadBtn.download = `${(job.title || 'narration').replace(/[^a-zA-Z0-9_\u0900-\u0D7F]/g, '_').slice(0, 40)}.wav`;
 
-      document.getElementById('result-transcript').innerText = job.final_text || '';
+      // Render Synchronized Reading & Bookmarks
+      renderSynchronizedTranscript(job.sentences, job.final_text);
+      renderBookmarks(job.bookmarks || []);
 
       playerCard.classList.remove('hidden');
       textCard.classList.remove('hidden');
-      showToast('Narration generated successfully!', 'success');
+      showToast('Narration ready with synchronized reading!', 'success');
     }
 
     function resetGenerateButton() {
@@ -617,9 +1152,8 @@
     }
 
     function copyTranscript() {
-      const text = document.getElementById('result-transcript').innerText;
-      if (text) {
-        navigator.clipboard.writeText(text).then(() => {
+      if (currentJob && currentJob.final_text) {
+        navigator.clipboard.writeText(currentJob.final_text).then(() => {
           showToast('Transcript copied to clipboard!', 'success');
         });
       }

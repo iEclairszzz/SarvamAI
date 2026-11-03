@@ -10,3 +10,5 @@ outputs/*.wav
 venv/
 .venv/
 .env*
+*.db
+outputs/previews/*.wav
