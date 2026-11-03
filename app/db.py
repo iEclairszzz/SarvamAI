@@ -1,4 +1,4 @@
-"""Database layer for Sarvam Narrator.
+"""Database layer for Sunlo.
 
 Stores jobs, playback positions, listening history, and bookmarks on the server
 without relying on browser localStorage.

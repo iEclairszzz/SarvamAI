@@ -1,1 +1,1 @@
-"""Sarvam Narrator Application Package"""
+"""Sunlo application package."""

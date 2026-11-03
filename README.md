@@ -1,5 +1,5 @@
-# Sarvam Narrator 🎙️
-> **Multilingual Text-to-Speech Content Reader (Hackathon MVP)**  
+# Sunlo 🎙️
+> **Every Indian story, out loud.**  
 > Turn pasted text, uploaded documents (`.txt`, `.md`, `.pdf`), or web article URLs into natural narrated audio in Indian languages & English using **Sarvam AI's Bulbul TTS** and **Mayura Translation**.
 
 ---
@@ -133,10 +133,10 @@ Open your browser at **`http://localhost:8000`** to start narrating!
 
 | Time | Action | What to Say / Notice |
 |---|---|---|
-| **0:00 - 0:20** | Open `http://localhost:8000` | *"Welcome to Sarvam Narrator. It turns any article, document, or pasted text into natural Indian voice audio."* |
+| **0:00 - 0:20** | Open `http://localhost:8000` | *"Welcome to Sunlo. It turns any article, document, or pasted text into natural Indian voice audio."* |
 | **0:20 - 0:45** | Click **"Sample: Hindi News"**, pick **"News"** style, click **"Generate Narration"** | *"Watch the live progress indicator. It cleans markdown, chunks sentences around Devanagari dandas, synthesizes with Bulbul v3 voice 'Shubh', and concatenates with ~250ms paragraph silence."* |
 | **0:45 - 1:15** | Play the generated Hindi audio & click **"Download WAV"** | *"Notice how natural the flow sounds with no audible chunk boundaries or clipping."* |
-| **1:15 - 1:45** | Switch to **"Web Article"** tab, enter a URL (e.g. Wikipedia), toggle **"Narrate in different language"** to Hindi with **"Story"** style | *"Sarvam Narrator extracts the core article with Trafilatura, translates it using Sarvam Mayura, and reads it with Priya's warm storytelling voice."* |
+| **1:15 - 1:45** | Switch to **"Web Article"** tab, enter a URL (e.g. Wikipedia), toggle **"Narrate in different language"** to Hindi with **"Story"** style | *"Sunlo extracts the core article with Trafilatura, translates it using Sarvam Mayura, and reads it with Priya's warm storytelling voice."* |
 | **1:45 - 2:00** | Play audio and highlight the synchronized transcript preview | *"The final translated transcript is displayed right beside the player with instant copy and download options."* |
 
 ---

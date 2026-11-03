@@ -1,5 +1,5 @@
 """
-Presets and configuration for Sarvam Narrator.
+Presets and configuration for Sunlo.
 Since SSML is unsupported on Bulbul v3 / v4-flash, content style is achieved
 through voice persona selection, pace tuning, and sentence-level pacing.
 """

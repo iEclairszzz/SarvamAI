@@ -53,7 +53,7 @@ init_db()
 # audio is persisted to Vercel Blob instead of the local filesystem.
 IS_SERVERLESS = bool(os.getenv("VERCEL"))
 
-app = FastAPI(title="Sarvam Narrator", description="Multilingual TTS Content Reader powered by Sarvam AI")
+app = FastAPI(title="Sunlo", description="Every Indian story, out loud. Multilingual TTS content reader powered by Sarvam AI")
 
 # In-memory jobs store (per-process; used for local polling)
 jobs: Dict[str, Dict[str, Any]] = {}
@@ -314,7 +314,7 @@ def get_voice_preview(
     elif safe_lang.startswith("bn"):
         sample_text = f"নমস্কার! এটি সর্বম এআই {speaker_name} ভয়েস প্রিভিউ।"
     else:
-        sample_text = f"Hello, I am {speaker_name}. Welcome to Sarvam AI voice narrator."
+        sample_text = f"Hello, I am {speaker_name}. Welcome to Sunlo."
 
     try:
         sarvam = SarvamClientWrapper()
